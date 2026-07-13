@@ -1,0 +1,22 @@
+{
+  "name": "audio-reactive-3dgs-transition-demo",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && vite build",
+    "test": "node tests/transition-dust-demo-contract.mjs"
+  },
+  "dependencies": {
+    "@sparkjsdev/spark": "^2.1.0",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.185.0",
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
+    "playwright": "^1.61.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.3"
+  }
+}

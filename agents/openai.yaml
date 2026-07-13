@@ -1,0 +1,4 @@
+interface:
+  display_name: "3DGS Scene Transition"
+  short_description: "Build reusable transitions between two 3DGS scenes"
+  default_prompt: "Use $build-3dgs-scene-transition to build a GSplat-native transition between two 3DGS scene assets."

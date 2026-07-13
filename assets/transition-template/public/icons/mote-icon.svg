@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="光尘图标">
+  <defs>
+    <radialGradient id="warmDust" cx="66%" cy="31%" r="28%">
+      <stop offset="0%" stop-color="#FFF4D4"/>
+      <stop offset="22%" stop-color="#FFE2A3" stop-opacity="0.92"/>
+      <stop offset="54%" stop-color="#F6B86D" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#F6B86D" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="softEdge" cx="50%" cy="50%" r="72%">
+      <stop offset="0%" stop-color="#101522"/>
+      <stop offset="100%" stop-color="#05060A"/>
+    </radialGradient>
+    <filter id="dustBloom" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#05060A"/>
+  <rect x="22" y="22" width="468" height="468" rx="92" fill="url(#softEdge)" opacity="0.92"/>
+  <circle cx="338" cy="158" r="144" fill="url(#warmDust)" opacity="0.88"/>
+  <g filter="url(#dustBloom)">
+    <circle cx="338" cy="158" r="15" fill="#FFF4D4"/>
+    <circle cx="364" cy="130" r="3.2" fill="#FFF2CC" opacity="0.68"/>
+    <circle cx="309" cy="187" r="2.6" fill="#FFE8B3" opacity="0.48"/>
+  </g>
+</svg>
