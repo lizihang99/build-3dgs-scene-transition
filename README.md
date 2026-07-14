@@ -6,7 +6,7 @@
 
 1. 旧 3DGS 场景沿方向场消散。
 2. 画面停留在持续流动的高斯光尘中段，可响应音乐 FFT。
-3. 用户第二次操作后，新 3DGS 场景从分散状态重新聚合。
+3. 用户第二次操作后，中段粒子先向镜头前扑，新 3DGS 场景默认从中心向外逐层扩散显形。
 
 中段粒子同样使用 Gaussian splats，而不是普通 `THREE.Points`。默认效果不依赖两套资产之间的一一粒子对应，也不使用白闪或过曝遮挡切换。
 
@@ -15,6 +15,7 @@
 - 可直接运行的 Spark 2.1.x + Three.js 演示
 - Release、Hold、Gather 三阶段转场
 - 两按钮交互状态机
+- 新场景 `中心展开` / `回聚` 两种显形模式
 - Curl-like flow、spectral filaments 和纵深脉冲运动
 - 音频 FFT 响应与暂停衰减
 - 两份带授权的 `.spz` 示例资产和一首 CC BY 4.0 示例音乐
@@ -91,17 +92,24 @@ npm test
 旧场景 Splat 数据
        |
        v
-Release modifier -> Hold proxy GSplats -> Gather modifier
+Release modifier -> Hold proxy GSplats -> Incoming reveal modifier
                                               |
                                               v
                                       新场景 Splat 数据
 ```
 
-两份场景会预加载到独立的 `PackedSplats`，但场景树中只保留一个稳定的 `SplatMesh`。进入 Gather 前，同步切换它的 `splats`、`packedSplats`、场景变换和 modifier，再更新 generator 与 mapping。这样可以避免 Spark 2.1.x 中多个动态场景 generator 发生 accumulator 数据串线。
+两份场景会预加载到独立的 `PackedSplats`，但场景树中只保留一个稳定的 `SplatMesh`。进入新场景显形前，同步切换它的 `splats`、`packedSplats`、场景变换和 modifier，再更新 generator 与 mapping。这样可以避免 Spark 2.1.x 中多个动态场景 generator 发生 accumulator 数据串线。
+
+默认 incoming 模式是 `center-bloom`：进入阶段前 44% 只保留中段 GSplat 粒子的纵深前扑，之后真实 incoming splats 会按自身空间半径从中心向外扩散显示。右上角分段控件可以切回 `gather`，也可以用查询参数控制：
+
+```text
+https://localhost:5187/transition-dust-demo.html?reveal=gather
+https://localhost:5187/transition-dust-demo.html?reveal=center
+```
 
 主要模块：
 
-- `SplatTransitionPair`：场景预加载、单 mesh 切源、Release/Gather modifier
+- `SplatTransitionPair`：场景预加载、单 mesh 切源、Release/Incoming reveal modifier
 - `TransitionDustField`：中段代理 GSplat、流场、光丝、边缘气氛和 FFT uniforms
 - `AudioEngine`：音频播放、频段分析和响应衰减
 - `window.__transitionDustDemo`：自动化验证与调试接口
@@ -120,8 +128,9 @@ npm test
 
 - 初始和最终 3DGS 均真实渲染，而不是只有纯色背景
 - Release 后停留在持续运动的 Hold 状态
-- 第二次操作先产生纵深推进，再显示新场景
+- 第二次操作先产生纵深推进，再按默认中心展开显示新场景
 - 最终只显示新场景，代理粒子透明度归零
+- 右上角显形模式控件可从默认中心展开切换到回聚再切回
 - 桌面和移动端控制没有越界
 - 浏览器控制台没有错误
 

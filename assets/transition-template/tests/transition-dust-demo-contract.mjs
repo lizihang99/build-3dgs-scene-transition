@@ -46,10 +46,14 @@ async function pollPage(page, evaluateFn, timeoutMs, label, intervalMs = 120, ev
 }
 
 async function assertActionFits(page, label) {
-  const bounds = await page.evaluate(() => {
-    const action = document.querySelector("[data-demo-action]");
-    if (!(action instanceof HTMLElement)) return null;
-    const rect = action.getBoundingClientRect();
+  await assertElementFits(page, "[data-demo-action]", `${label} action control`);
+}
+
+async function assertElementFits(page, selector, label) {
+  const bounds = await page.evaluate((targetSelector) => {
+    const element = document.querySelector(targetSelector);
+    if (!(element instanceof HTMLElement)) return null;
+    const rect = element.getBoundingClientRect();
     return {
       left: rect.left,
       top: rect.top,
@@ -58,12 +62,12 @@ async function assertActionFits(page, label) {
       viewportWidth: innerWidth,
       viewportHeight: innerHeight
     };
-  });
-  assert(bounds, `${label} action control is missing`);
-  assert(bounds.left >= 0 && bounds.top >= 0, `${label} action control starts outside the viewport: ${JSON.stringify(bounds)}`);
+  }, selector);
+  assert(bounds, `${label} is missing`);
+  assert(bounds.left >= 0 && bounds.top >= 0, `${label} starts outside the viewport: ${JSON.stringify(bounds)}`);
   assert(
     bounds.right <= bounds.viewportWidth + 0.5 && bounds.bottom <= bounds.viewportHeight + 0.5,
-    `${label} action control overflows the viewport: ${JSON.stringify(bounds)}`
+    `${label} overflows the viewport: ${JSON.stringify(bounds)}`
   );
 }
 
@@ -88,7 +92,7 @@ try {
   });
   page.on("pageerror", (error) => consoleErrors.push(error.message));
 
-  await page.goto(`${baseUrl}/transition-dust-demo.html?autoplay=0&releaseDuration=0.55&enterDuration=0.55&count=600`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${baseUrl}/transition-dust-demo.html?autoplay=0&releaseDuration=0.55&enterDuration=2.2&count=600`, { waitUntil: "domcontentloaded" });
   await pollPage(
     page,
     () => typeof window.__transitionDustDemo === "object",
@@ -110,6 +114,8 @@ try {
   assert(ready.dustPrimitive === "gsplat", `transition particles must use the same Gaussian primitive as 3DGS: ${JSON.stringify(ready)}`);
   assert(ready.audioReactive === true && ready.audioTrack === "Cipher", `demo should expose the real FFT-reactive track: ${JSON.stringify(ready)}`);
   assert(ready.flowState === "STANDBY" && ready.playing === false, `autoplay=0 should await the first action: ${JSON.stringify(ready)}`);
+  assert(ready.revealMode === "center-bloom", `default reveal mode should be center bloom: ${JSON.stringify(ready)}`);
+  assert(ready.revealProgress === 0, `incoming reveal should start collapsed: ${JSON.stringify(ready)}`);
   const outgoingPixels = await pollPage(
     page,
     () => {
@@ -121,8 +127,15 @@ try {
   );
   assert(outgoingPixels.luminanceStdDev > 4, `Outgoing 3DGS appears blank: ${JSON.stringify(outgoingPixels)}`);
   await assertActionFits(page, "desktop");
-  const initialButton = await page.locator("#action-button").textContent();
+  await assertElementFits(page, "#reveal-mode-ui", "desktop reveal mode control");
+  const initialButton = await page.evaluate(() => document.querySelector("#action-button")?.textContent ?? null);
   assert(initialButton?.includes("释放粒子"), `first action should release particles: ${initialButton}`);
+  await page.evaluate(() => document.querySelector('[data-reveal-mode="gather"]')?.click());
+  const gatherMode = await page.evaluate(() => window.__transitionDustDemo.state());
+  assert(gatherMode.revealMode === "gather", `reveal mode control should switch to gather: ${JSON.stringify(gatherMode)}`);
+  await page.evaluate(() => document.querySelector('[data-reveal-mode="center-bloom"]')?.click());
+  const centerMode = await page.evaluate(() => window.__transitionDustDemo.state());
+  assert(centerMode.revealMode === "center-bloom", `reveal mode control should switch back to center bloom: ${JSON.stringify(centerMode)}`);
 
   const release = await page.evaluate(() => {
     document.querySelector("#action-button")?.click();
@@ -145,7 +158,7 @@ try {
   assert(hold.dustOpacity >= 0.7, `Hold dust should carry the frame: ${JSON.stringify(hold)}`);
   assert(hold.dustMotionModel === "spectral-filament", `Hold should use the audio-reactive spectral filament flow: ${JSON.stringify(hold)}`);
   assert(Number.isInteger(hold.dustVersion), `Hold should expose its generated GSplat version: ${JSON.stringify(hold)}`);
-  const readyButton = await page.locator("#action-button").textContent();
+  const readyButton = await page.evaluate(() => document.querySelector("#action-button")?.textContent ?? null);
   assert(readyButton?.includes("进入空间"), `second action should enter the scene: ${readyButton}`);
   const holdPixels = await pollPage(
     page,
@@ -179,31 +192,36 @@ try {
     return window.__transitionDustDemo.state();
   });
   assert(enteringStart.flowState === "ENTERED" && enteringStart.playing, `second action did not start entering: ${JSON.stringify(enteringStart)}`);
-  const entering = await pollPage(
-    page,
-    () => {
-      const state = window.__transitionDustDemo.state();
-      return state.flowState === "ENTERED" && state.playing && state.dustSurge > 0.05 ? state : false;
-    },
-    3_000,
-    "second action did not trigger the forward surge"
-  );
-  assert(entering.oldVisible === false && entering.newVisible === false, `surge should precede the new scene reveal: ${JSON.stringify(entering)}`);
-  const uiHidden = await page.locator("#action-ui").getAttribute("data-hidden");
+  assert(enteringStart.dustSurge > 0.05, `second action did not trigger the forward surge: ${JSON.stringify(enteringStart)}`);
+  assert(enteringStart.oldVisible === false && enteringStart.newVisible === false, `surge should precede the new scene reveal: ${JSON.stringify(enteringStart)}`);
+  assert(enteringStart.revealMode === "center-bloom" && enteringStart.revealProgress === 0, `forward surge should happen before center bloom reveal: ${JSON.stringify(enteringStart)}`);
+  const uiHidden = await page.evaluate(() => document.querySelector("#action-ui")?.getAttribute("data-hidden") ?? null);
   assert(uiHidden === "true", `action UI should fade out after entering: ${uiHidden}`);
+  const revealLocked = await page.evaluate(() => document.querySelector("#reveal-mode-ui")?.getAttribute("data-locked") ?? null);
+  assert(revealLocked === "true", `reveal mode control should lock during enter: ${revealLocked}`);
 
-  const settled = await pollPage(
-    page,
-    () => {
-      const state = window.__transitionDustDemo.state();
-      return state.phase === "settled" && !state.playing ? state : { __pending: true, ...state };
-    },
-    30_000,
-    "second action did not settle into the new scene"
+  await page.evaluate(() => window.__transitionDustDemo.seek(0.8125));
+  await page.waitForTimeout(100);
+  const blooming = await page.evaluate(() => ({
+    state: window.__transitionDustDemo.state(),
+    pixels: window.__transitionDustDemo.pixelStats()
+  }));
+  assert(
+    blooming.state.flowState === "ENTERED" &&
+      blooming.state.newVisible &&
+      blooming.state.revealMode === "center-bloom" &&
+      blooming.state.revealProgress > 0.45 &&
+      blooming.state.revealProgress < 0.55,
+    `center bloom did not reveal the incoming 3DGS at mid-progress: ${JSON.stringify(blooming)}`
   );
+  assert(blooming.pixels.luminanceStdDev > 2.5, `Center bloom frame appears flat: ${JSON.stringify(blooming)}`);
+  assert(blooming.pixels.nonDarkFraction > 0.002, `Center bloom frame appears blank: ${JSON.stringify(blooming)}`);
+
+  const settled = await page.evaluate(() => window.__transitionDustDemo.seek(1));
   assert(settled.phase === "settled", `1.0 should be Settled: ${JSON.stringify(settled)}`);
   assert(settled.oldVisible === false && settled.newVisible === true, `Settled visibility is wrong: ${JSON.stringify(settled)}`);
   assert(settled.dustOpacity < 0.01, `Settled dust should be gone: ${JSON.stringify(settled)}`);
+  assert(settled.revealMode === "center-bloom" && settled.revealProgress === 1, `Settled center bloom state is wrong: ${JSON.stringify(settled)}`);
   const incomingPixels = await pollPage(
     page,
     () => {
@@ -219,6 +237,7 @@ try {
   await page.waitForTimeout(100);
   await page.evaluate(() => window.__transitionDustDemo.seek(0));
   await assertActionFits(page, "mobile");
+  await assertElementFits(page, "#reveal-mode-ui", "mobile reveal mode control");
 
   assert(consoleErrors.length === 0, `browser console errors:\n${consoleErrors.join("\n")}`);
   console.log("transition-dust-demo-contract PASS");

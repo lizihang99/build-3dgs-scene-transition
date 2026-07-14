@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { SparkRenderer } from "@sparkjsdev/spark";
 import { AudioEngine } from "./audio/audio";
-import { SplatTransitionPair } from "./demo/splatTransitionPair";
+import { SplatTransitionPair, type IncomingRevealMode } from "./demo/splatTransitionPair";
 import {
   HOLD_END,
   RELEASE_END,
@@ -43,6 +43,8 @@ interface DemoState {
   newVisible: boolean;
   oldSplats: number;
   newSplats: number;
+  revealMode: IncomingRevealMode;
+  revealProgress: number;
 }
 
 interface PixelStats {
@@ -60,6 +62,7 @@ interface TransitionDustDemoApi {
   pause(): DemoState;
   replay(): DemoState;
   seek(progress: number): DemoState;
+  setRevealMode(mode: IncomingRevealMode): DemoState;
   pixelStats(): PixelStats;
 }
 
@@ -75,6 +78,7 @@ const releaseDurationSec = Math.max(0.35, Number(query.get("releaseDuration")) |
 const enterDurationSec = Math.max(0.35, Number(query.get("enterDuration")) || 2.7);
 const durationSec = releaseDurationSec + enterDurationSec;
 const readyProgress = HOLD_END - 0.002;
+const initialRevealMode = resolveRevealMode(query.get("reveal") ?? query.get("revealMode"));
 
 const viewport = requiredElement<HTMLElement>("viewport");
 const loading = requiredElement<HTMLElement>("loading");
@@ -82,6 +86,8 @@ const loadingLabel = requiredElement<HTMLElement>("loading-label");
 const actionUi = requiredElement<HTMLElement>("action-ui");
 const actionButton = requiredElement<HTMLButtonElement>("action-button");
 const actionSubtitle = requiredElement<HTMLElement>("action-subtitle");
+const revealModeUi = requiredElement<HTMLElement>("reveal-mode-ui");
+const revealModeButtons = [...document.querySelectorAll<HTMLButtonElement>("[data-reveal-mode]")];
 const audioToggle = requiredElement<HTMLButtonElement>("audio-toggle");
 const fftMeters = new Map(
   [...document.querySelectorAll<HTMLElement>("[data-fft-band]")].map((element) => [element.dataset.fftBand, element])
@@ -119,6 +125,7 @@ const spark = new SparkRenderer({ renderer });
 scene.add(spark);
 
 const splats = new SplatTransitionPair(scene);
+splats.setRevealMode(initialRevealMode);
 const dust = new TransitionDustField(resolveDustCount());
 scene.add(dust.mesh);
 
@@ -165,6 +172,10 @@ function easeOutExpo(value: number) {
   return t >= 1 ? 1 : 1 - 2 ** (-10 * t);
 }
 
+function resolveRevealMode(mode: unknown): IncomingRevealMode {
+  return mode === "gather" ? "gather" : "center-bloom";
+}
+
 function updateBackground(value: number) {
   if (value < RELEASE_END) {
     mixedBackground.copy(oldBackground).lerp(voidBackground, value / RELEASE_END);
@@ -200,6 +211,13 @@ function updateUi() {
   document.body.dataset.flowState = flowState;
   actionUi.dataset.hidden = String(flowState === "ENTERED");
   actionButton.dataset.ready = String(flowState === "READY");
+  const revealLocked = !ready || flowState === "LOADING" || flowState === "ENTERED";
+  revealModeUi.dataset.locked = String(revealLocked);
+  for (const button of revealModeButtons) {
+    const mode = resolveRevealMode(button.dataset.revealMode);
+    button.disabled = revealLocked;
+    button.dataset.active = String(mode === splats.state().revealMode);
+  }
 
   if (!ready) {
     actionButton.disabled = true;
@@ -324,7 +342,10 @@ function activate() {
     flowState = "ENTERED";
     activeSegment = "enter";
     segmentElapsedSec = 0;
+    surgeOverride = 0.18;
     playing = true;
+    applyTransition(readyProgress, false);
+    renderOnce();
   }
   updateUi();
   return currentState();
@@ -353,6 +374,14 @@ function resetToStandby() {
   surgeOverride = undefined;
   playing = false;
   applyTransition(0);
+  renderOnce();
+  return currentState();
+}
+
+function setRevealMode(mode: IncomingRevealMode) {
+  if (flowState === "LOADING" || flowState === "ENTERED") return currentState();
+  splats.setRevealMode(mode);
+  updateUi();
   renderOnce();
   return currentState();
 }
@@ -394,14 +423,15 @@ function advanceTransition(deltaSec: number, motionDeltaSec: number) {
 
   const t = clamp01(segmentElapsedSec / enterDurationSec);
   const surgeEnd = 0.44;
+  const surgeStrength = splats.state().revealMode === "center-bloom" ? 2.65 : 2.15;
   if (t < surgeEnd) {
     const surgeT = t / surgeEnd;
-    surgeOverride = 2.15 * smoothstep(surgeT);
+    surgeOverride = surgeStrength * smoothstep(surgeT);
     applyTransition(readyProgress, false);
   } else {
     const gatherT = (t - surgeEnd) / (1 - surgeEnd);
     const gatherEase = easeOutExpo(gatherT);
-    surgeOverride = 2.15 * (1 - smoothstep(gatherT));
+    surgeOverride = surgeStrength * (1 - smoothstep(gatherT));
     applyTransition(HOLD_END + (1 - HOLD_END) * gatherEase);
   }
 
@@ -415,6 +445,9 @@ function advanceTransition(deltaSec: number, motionDeltaSec: number) {
 
 function pixelStats(): PixelStats {
   const gl = renderer.getContext();
+  if (typeof WebGL2RenderingContext !== "undefined" && gl instanceof WebGL2RenderingContext) {
+    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+  }
   const width = gl.drawingBufferWidth;
   const height = gl.drawingBufferHeight;
   const pixels = new Uint8Array(width * height * 4);
@@ -444,10 +477,13 @@ function pixelStats(): PixelStats {
   };
 }
 
-window.__transitionDustDemo = { state: currentState, activate, play, pause, replay, seek, pixelStats };
+window.__transitionDustDemo = { state: currentState, activate, play, pause, replay, seek, setRevealMode, pixelStats };
 
 actionButton.addEventListener("click", activate);
 audioToggle.addEventListener("click", toggleAudio);
+for (const button of revealModeButtons) {
+  button.addEventListener("click", () => setRevealMode(resolveRevealMode(button.dataset.revealMode)));
+}
 addEventListener("keydown", (event) => {
   if (event.code === "Enter" || event.code === "Space") {
     event.preventDefault();

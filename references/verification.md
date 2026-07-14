@@ -22,8 +22,10 @@ Also run `git diff --check` when integrated into a repository.
 6. Capture two hold screenshots at least 500ms apart; the proxy field must visibly change without changing phase/progress.
 7. Pause audio and confirm all FFT values decay to zero while autonomous motion continues.
 8. Click enter and confirm surge occurs before incoming scene visibility.
-9. Confirm the settled state contains the incoming scene and proxy opacity is near zero.
-10. Repeat layout checks at approximately 390x844 and 1280x800.
+9. Confirm the default reveal mode is `center-bloom`, and that an enter mid-frame shows the incoming scene partially revealed with non-uniform pixels.
+10. Confirm the `gather` mode control can switch away from and back to `center-bloom` before the transition begins.
+11. Confirm the settled state contains the incoming scene and proxy opacity is near zero.
+12. Repeat layout checks at approximately 390x844 and 1280x800.
 
 ## Canvas Checks
 

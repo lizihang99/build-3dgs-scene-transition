@@ -257,6 +257,57 @@
       .fft-band:nth-child(3) { background: rgba(190, 222, 220, 0.68); }
       .fft-band:nth-child(4) { background: rgba(128, 183, 191, 0.6); }
 
+      .reveal-mode-ui {
+        position: fixed;
+        z-index: 4;
+        top: max(18px, env(safe-area-inset-top));
+        right: 18px;
+        display: inline-grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: min(224px, calc(100vw - 184px));
+        min-width: 156px;
+        padding: 3px;
+        border: 1px solid rgba(181, 217, 222, 0.2);
+        border-radius: 999px;
+        background: rgba(7, 18, 22, 0.46);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        transition: opacity 240ms ease;
+      }
+
+      .reveal-mode-ui[data-locked="true"] {
+        opacity: 0.42;
+      }
+
+      .reveal-mode-button {
+        min-width: 0;
+        height: 32px;
+        padding: 0 12px;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: rgba(219, 239, 242, 0.66);
+        font-size: 12px;
+        font-weight: 580;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+
+      .reveal-mode-button[data-active="true"] {
+        background: rgba(112, 213, 225, 0.18);
+        color: #dffbff;
+        box-shadow: inset 0 0 0 1px rgba(137, 228, 238, 0.22), 0 0 18px rgba(82, 190, 205, 0.14);
+      }
+
+      .reveal-mode-button:focus-visible {
+        outline: 1px solid rgba(143, 223, 255, 0.72);
+        outline-offset: 2px;
+      }
+
+      .reveal-mode-button:disabled {
+        cursor: default;
+      }
+
       @media (max-width: 560px) {
         .audio-ui {
           top: max(12px, env(safe-area-inset-top));
@@ -269,6 +320,19 @@
           flex-basis: 36px;
         }
 
+        .audio-copy {
+          max-width: 112px;
+          overflow: hidden;
+        }
+
+        .audio-credit {
+          display: none;
+        }
+
+        .fft-meter {
+          width: 96px;
+        }
+
         .action-ui {
           bottom: max(12%, calc(20px + env(safe-area-inset-bottom)));
         }
@@ -277,6 +341,19 @@
           min-height: 50px;
           padding: 12px 24px;
           font-size: 14px;
+        }
+
+        .reveal-mode-ui {
+          top: max(12px, env(safe-area-inset-top));
+          right: 12px;
+          width: min(178px, calc(100vw - 168px));
+          min-width: 142px;
+        }
+
+        .reveal-mode-button {
+          height: 30px;
+          padding: 0 8px;
+          font-size: 11px;
         }
       }
 
@@ -313,6 +390,11 @@
           <i class="fft-band" data-fft-band="energy"></i>
         </div>
       </div>
+    </section>
+
+    <section id="reveal-mode-ui" class="reveal-mode-ui" aria-label="Reveal mode">
+      <button class="reveal-mode-button" type="button" data-reveal-mode="gather">回聚</button>
+      <button class="reveal-mode-button" type="button" data-reveal-mode="center-bloom">中心展开</button>
     </section>
 
     <section id="action-ui" class="action-ui" data-demo-action aria-label="Transition controls">

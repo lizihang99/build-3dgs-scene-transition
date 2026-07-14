@@ -9,7 +9,9 @@ Reproduce a convincing transition between unrelated 3DGS scenes without requirin
 - Start in `STANDBY` with the outgoing scene visible.
 - First action changes to `LOADING`, starts the licensed sample music, and runs release-to-hold.
 - Stop in `READY`; show the proxy GSplat field continuously and keep it moving.
-- Second action changes to `ENTERED`, fades the control, produces a forward compression/surge, then gathers the incoming scene.
+- Second action changes to `ENTERED`, fades the control, produces a forward compression/surge, then reveals the incoming scene.
+- Default incoming reveal is `center-bloom`: the proxy field surges forward first, then the real incoming 3DGS appears from the scene center outward.
+- Keep `gather` available as a switchable compatibility mode.
 - Do not add automatic playback by default. Query-controlled autoplay may exist for tests.
 
 ## Timing
@@ -17,14 +19,16 @@ Reproduce a convincing transition between unrelated 3DGS scenes without requirin
 - Release-to-ready: 4.5 seconds by default.
 - Enter-to-settled: 2.7 seconds by default.
 - During enter, reserve roughly the first 44% for the forward surge before revealing the incoming scene.
+- In `center-bloom`, the remaining enter time expands incoming splats radially from center to edge.
 - Advance state progress with real elapsed time. Clamp only the motion simulation time step.
 
 ## Rendering
 
 - Render outgoing and incoming content as native 3DGS data through one persistent scene `SplatMesh`.
-- Preload both scene sources, hide the persistent mesh during Hold, and swap its source before Gather. Do not keep two modifier-driven scene meshes active in Spark 2.1.x.
+- Preload both scene sources, hide the persistent mesh during Hold, and swap its source before incoming reveal. Do not keep two modifier-driven scene meshes active in Spark 2.1.x.
 - Render the middle field as editable/generated `SplatMesh` Gaussian splats, not point sprites.
 - Use a synthetic proxy field when the two source scenes have unrelated topology or splat counts.
+- The default center reveal modifies the actual incoming source splats. It may sample incoming centers on the CPU to estimate a robust center and extents, but it must not replace the incoming asset with generic particles.
 - Disable proxy frustum culling because the GPU modifier moves positions outside the packed source bounds.
 - Keep the proxy in camera-local space so its framing is stable across scene transforms.
 
@@ -35,6 +39,7 @@ Reproduce a convincing transition between unrelated 3DGS scenes without requirin
 - Secondary motion: five softly attracting spectral filaments.
 - Depth: three phase-offset breathing groups plus pulse-driven compression waves.
 - Edge atmosphere: a sparse, slower outer GSplat shell and a subtle transition-only cyan edge haze.
+- Center-bloom reveal: incoming splats start near the robust scene center, then expand outward in a soft radial wave with a small tangential drift and no camera flash.
 - Avoid rigid S-curves, fully random per-particle shaking, and permanent full-axis rotation around the camera.
 
 ## Material And Color
@@ -42,6 +47,7 @@ Reproduce a convincing transition between unrelated 3DGS scenes without requirin
 - Keep splats small enough to read as Gaussian material particles rather than large blurred discs.
 - Mix small bright cores with sparse, larger, low-alpha halos.
 - Use restrained cold cyan and mist white with only a small trace of the outgoing warm color.
+- The center-bloom stage may add a brief restrained cyan/mist glow, but it should resolve into the incoming asset's original 3DGS colors.
 - Avoid rainbow palettes, dominant magenta/gold, and full-screen bloom.
 - Do not use an overexposure flash.
 
@@ -58,6 +64,7 @@ Expose at least:
 
 - readiness, flow state, phase, transition progress, and playing state;
 - old/new scene visibility, active source, and splat counts;
+- incoming reveal mode and reveal progress;
 - proxy primitive, motion model, count, opacity, version, and surge;
 - audio-reactive flag, audio playing state, track name, low/mid/high/energy, and pulse;
 - replay/seek controls and a canvas pixel-stat probe for automated validation.

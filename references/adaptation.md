@@ -23,10 +23,19 @@ Configure each scene in `src/demo/transitionConfig.ts`:
 4. Frame the camera so the subject is readable without clipping.
 5. Repeat independently for the incoming scene.
 6. Verify both scenes use the same camera contract or define explicit camera interpolation.
-7. Enable release/gather modifiers at progress 0 and 1 and confirm neither creates NaNs, clipping, or reversed opacity.
+7. Enable release and incoming reveal modifiers at progress 0 and 1 and confirm neither creates NaNs, clipping, or reversed opacity.
 8. Tune wind projection for the subject's composition; do not reuse left/right directions blindly.
 
 Different captures frequently use inverted Y, a 180-degree X correction, different unit scales, and widely different centers. No robust generic transform can be inferred from the filename alone.
+
+## Incoming Reveal Modes
+
+The template exposes two incoming reveal modes:
+
+- `center-bloom`: default. The proxy GSplat bridge surges forward first, then the real incoming splats expand from a sampled robust center toward their original positions.
+- `gather`: compatibility mode. The real incoming splats fade back from a wind-dispersed modifier state.
+
+For `center-bloom`, the implementation samples the incoming `PackedSplats` centers after load and estimates a 1%-99% center and half-extent. This keeps a few outlier splats from making the reveal order feel wrong. Scene transforms still must be calibrated separately in `transitionConfig.ts`; the sampled bounds describe the asset's local splat space, not the final camera framing.
 
 ## Transition Strategy
 

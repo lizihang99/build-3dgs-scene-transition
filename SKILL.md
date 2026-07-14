@@ -39,7 +39,7 @@ Then edit `src/demo/transitionConfig.ts` to calibrate each scene's position, rot
 Reuse the target repository's Three.js renderer, animation loop, audio context, controls, motion tokens, and UI patterns. Port these ownership units rather than copying the whole page:
 
 - `TransitionDustField`: proxy GSplat bridge, spectral filaments, Curl Flow, FFT uniforms.
-- `SplatTransitionPair`: two preloaded scene buffers, one stable scene mesh, and release/gather modifiers.
+- `SplatTransitionPair`: two preloaded scene buffers, one stable scene mesh, and release/incoming reveal modifiers.
 - Flow state machine: `STANDBY`, `LOADING`, `READY`, `ENTERED`.
 - Audio mapping: reuse the existing audio analyser when one exists; do not create competing audio contexts.
 
@@ -54,18 +54,21 @@ For Spark or Three.js API differences, adapt the renderer-facing layer and prese
 5. Implement three visual phases:
    - Release: dissolve the outgoing 3DGS and move it along a directional field.
    - Hold: hide the persistent scene mesh and render the proxy GSplat spectral-filament field.
-   - Gather: switch the same mesh to the incoming source, transform, and gather modifier; then reveal it while fading the proxy field.
+   - Incoming reveal: switch the same mesh to the incoming source, transform, and reveal modifier; then reveal it while fading the proxy field.
 6. On each source swap, set both `mesh.splats` and `mesh.packedSplats`, replace the modifier, then call `updateGenerator()` and `updateMappingVersion()` before revealing the mesh.
-7. Keep the hold state alive until the second action; do not auto-advance it unless requested.
-8. Wire optional FFT response using [references/motion-audio.md](references/motion-audio.md).
-9. Expose a debug state contract comparable to `window.__transitionDustDemo` for deterministic verification.
-10. Run all checks in [references/verification.md](references/verification.md).
+7. Default the incoming reveal to `center-bloom`: during Enter, keep roughly the first 44% as proxy GSplat forward surge only, then reveal the real incoming splats from the robust center outward.
+8. Keep the classic `gather` reveal mode available as a switchable alternative when adapting the template.
+9. Keep the hold state alive until the second action; do not auto-advance it unless requested.
+10. Wire optional FFT response using [references/motion-audio.md](references/motion-audio.md).
+11. Expose a debug state contract comparable to `window.__transitionDustDemo` for deterministic verification.
+12. Run all checks in [references/verification.md](references/verification.md).
 
 ## Non-Negotiable Quality Rules
 
 - Use Gaussian splats for the transition field when the surrounding scenes are Gaussian splats.
 - Do not require one-to-one splat correspondence unless the user explicitly requests exact morphing and both buffers are accessible.
 - Do not use a white flash or overexposure pulse to hide coordinate discontinuities.
+- The default center reveal must act on the real incoming 3DGS splats, not a second generic particle system.
 - Keep motion coherent and fluid. FFT changes amplitudes and field parameters; it must not directly jitter particle coordinates.
 - Drive transition duration from elapsed wall-clock time so low frame rates do not lengthen the sequence.
 - Disable frustum culling for GPU-modified proxy splats whose generated positions exceed source bounds.
